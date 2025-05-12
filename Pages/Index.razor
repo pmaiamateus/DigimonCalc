@@ -1,0 +1,226 @@
+﻿@page "/"
+
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<PageTitle>Calculator</PageTitle>
+
+<MudForm>
+     <MudMenu AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft" Class="pa-0 pt-1 ma-0 mt-1 align-self-start" Style="min-width: 50%">
+        <ActivatorContent>
+            <MudTextField @bind-Value="myDigimon.Name" OnDebounceIntervalElapsed="MyDigimonFinder" DebounceInterval="100" Label="My digimon name" />
+        </ActivatorContent>
+        <ChildContent>
+            <MudStack Spacing="0" Class="pa-0">
+                @foreach (var myDigi in myDigimonsFound)
+                {
+                    <MudMenuItem Class="flex-1 flex-grow-1 object-contain justify-start pl-2 py-2"
+                                 OnClick="() => { myDigimonsFound = new() { myDigi }; myDigimon.Name = myDigi.Name; myDigimon.Type = myDigi.Type; }">
+                        @myDigi.Name
+                    </MudMenuItem>
+                }
+            </MudStack>
+        </ChildContent>
+    </MudMenu>
+    <MudNumericField @bind-Value="myDigimon.HP" Label="My digimon HP" Max="9999" Min="0" />
+    <MudNumericField @bind-Value="myDigimon.MP" Label="My digimon MP" Max="9999" Min="0" />
+    <MudNumericField @bind-Value="myDigimon.Offense" Label="My digimon Offense" Max="999" Min="0" />
+    <MudNumericField @bind-Value="myDigimon.Defense" Label="My digimon Defense" Max="999" Min="0" />
+    <MudNumericField @bind-Value="myDigimon.Speed" Label="My digimon Speed" Max="999" Min="0" />
+    <MudNumericField @bind-Value="myDigimon.Brains" Label="My digimon Brains" Max="999" Min="0" />
+    <MudNumericField @bind-Value="myDigimon.WeightMax" Label="My digimon Weight" Max="999" Min="0" />
+    <MudNumericField @bind-Value="myDigimon.Caremistakes" Label="This Evolution Caremistakes Count" Max="999" Min="0" />
+    <MudNumericField @bind-Value="myDigimon.Battles" Label="This Evolution Battles Won" Max="999" Min="0" />
+    <MudNumericField @bind-Value="myDigimon.Techniques" Label="Number of Digimon Techniques Learned" Max="999" Min="0" />
+    <MudMenu AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft" Class="pa-0 pt-1 ma-0 mt-1 align-self-start" Style="min-width: 50%">
+        <ActivatorContent>
+            <MudTextField @bind-Value="toDigivolve.Name" OnDebounceIntervalElapsed="ToDigivolveDigimonFinder" DebounceInterval="100"  Label="To digivolve digimon Name" />
+        </ActivatorContent>
+        <ChildContent>
+            <MudStack Spacing="0" Class="pa-0">
+                @foreach (var toDigi in toEvolveDigimonsFound)
+                {
+                    <MudMenuItem Class="flex-1 flex-grow-1 object-contain justify-start pl-2 py-2"
+                                 OnClick="() => { toEvolveDigimonsFound = new() { toDigi }; toDigivolve = toDigi; }">
+                        @toDigi.Name
+                    </MudMenuItem>
+                }
+            </MudStack>
+        </ChildContent>
+    </MudMenu>
+</MudForm>
+<MudButton OnClick="SearchDigimon" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true">Calculate Digivolve</MudButton>
+
+@code {
+    List<Digimon> digimons = new();
+    Digimon myDigimon = new();
+    Digimon toDigivolve = new();
+    List<Digimon> myDigimonsFound = new();
+    List<Digimon> toEvolveDigimonsFound = new();
+    List<Digimon> possibleEvolutions = new();
+    Digimon firstEvo = new();
+    Digimon secondEvo = new();
+    Digimon thirdEvo = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        try
+        {
+            digimons = await Http.GetFromJsonAsync<List<Digimon>>("sample-data/DigimonUpdateData.json") ?? new();
+        }
+        catch (Exception)
+        {
+            throw;
+        }
+    }
+
+    void MyDigimonFinder()
+    {
+        myDigimonsFound = JsonConvert.DeserializeObject<List<Digimon>>(JsonConvert.SerializeObject(digimons.FindAll(d => d.Name.ToLower().StartsWith(myDigimon.Name.ToLower())))) ?? new();
+    }
+
+    void ToDigivolveDigimonFinder()
+    {
+        toEvolveDigimonsFound = JsonConvert.DeserializeObject<List<Digimon>>(JsonConvert.SerializeObject(digimons.FindAll(d => d.Name.ToLower().StartsWith(toDigivolve.Name.ToLower()) && d.Type > myDigimon.Type))) ?? new();
+    }
+
+    void SearchDigimon()
+    {
+        firstEvo = new();
+        secondEvo = new();
+        thirdEvo = new();
+        Digimon myDigimonComp = JsonConvert.DeserializeObject<Digimon>(JsonConvert.SerializeObject(digimons.First(d => d.Name.ToLower().StartsWith(myDigimon.Name.ToLower()))));
+        if (myDigimon.Type == 0)
+            myDigimonComp = JsonConvert.DeserializeObject<Digimon>(JsonConvert.SerializeObject(digimons.First(d => d.Name.ToLower().StartsWith(myDigimonComp.EvolvesTo.First().ToLower()))));
+        if (toDigivolve.Type < myDigimonComp.Type && toDigivolve.Name != "")
+        {
+            Snackbar.Add("Digimon to digivolve must be at a higher tier than current digimon", Severity.Error);
+            return;
+        }
+        foreach (var evolution in myDigimonComp.EvolvesTo)
+            possibleEvolutions.Add(digimons.FirstOrDefault(e => e.Name == evolution));
+        // if(myDigimon.Type <= 2)
+        // {
+        //     List<Digimon> nearEvos = JsonConvert.DeserializeObject<List<Digimon>>(JsonConvert.SerializeObject(possibleEvolutions));
+        //     foreach (var evo in nearEvos)
+        //     {
+        //         foreach (var evoTo in evo.EvolvesTo)
+        //         {
+        //             Digimon? evolu = digimons.FirstOrDefault(d => d.Name == evoTo);
+        //             if (!possibleEvolutions.Contains(digimons.FirstOrDefault(d => d.Name == evoTo)))
+        //                 possibleEvolutions.Add(evolu);
+        //         }
+        //     }            
+        // }
+        // if (myDigimonComp.Type == 1)
+        // {
+        //     List<Digimon> nearEvos = JsonConvert.DeserializeObject<List<Digimon>>(JsonConvert.SerializeObject(possibleEvolutions));
+        //     foreach (var evo in nearEvos)
+        //     {
+        //         foreach (var evoTo in evo.EvolvesTo)
+        //         {
+        //             Digimon? evolu = digimons.FirstOrDefault(d => d.Name == evoTo);
+        //             if (!possibleEvolutions.Contains(digimons.FirstOrDefault(d => d.Name == evoTo)))
+        //                 possibleEvolutions.Add(evolu);
+        //         }
+        //     }
+        // }
+        CalculateReturn calcReturn = new();
+        foreach (var digiComp in possibleEvolutions)
+        {
+            if (digiComp.Type == myDigimonComp.Type + 1)
+            {
+                int possibleScore = 1;
+                if (digiComp.HP <= myDigimon.HP && digiComp.MP <= myDigimon.MP && digiComp.Offense <= myDigimon.Offense && digiComp.Defense <= myDigimon.Defense && digiComp.Speed <= myDigimon.Speed && digiComp.Brains <= myDigimon.Brains)
+                {
+                    possibleScore += 1;
+                }
+                if (digiComp.WeightMin <= myDigimon.WeightMax && digiComp.WeightMax >= myDigimon.WeightMax)
+                {
+                    possibleScore += 1;
+                }
+                if (digiComp.Caredirection == "U" && digiComp.Caremistakes <= myDigimon.Caremistakes)
+                {
+                    possibleScore += 1;
+                }
+                if (digiComp.Caredirection == "D" && digiComp.Caremistakes >= myDigimon.Caremistakes)
+                {
+                    possibleScore += 1;
+                }
+                if (digiComp.Caredirection == "E" && digiComp.Caremistakes == myDigimon.Caremistakes)
+                {
+                    possibleScore += 1;
+                }
+                if (possibleScore >= 3)
+                {
+                    if (firstEvo.Name == "" && digiComp.HP <= myDigimon.HP && digiComp.MP <= myDigimon.MP && digiComp.Offense <= myDigimon.Offense && digiComp.Defense <= myDigimon.Defense && digiComp.Speed <= myDigimon.Speed && digiComp.Brains <= myDigimon.Brains)
+                    {
+                        firstEvo = JsonConvert.DeserializeObject<Digimon>(JsonConvert.SerializeObject(digiComp));
+                        calcReturn = Calculate(firstEvo, digiComp, calcReturn.Score, calcReturn.CarriedOverStat, calcReturn.CarriedOverCount, myDigimon.Caremistakes);
+                    }
+                    else if (firstEvo.Name != "" && digiComp.HP <= myDigimon.HP && digiComp.MP <= myDigimon.MP && digiComp.Offense <= myDigimon.Offense && digiComp.Defense <= myDigimon.Defense && digiComp.Speed <= myDigimon.Speed && digiComp.Brains <= myDigimon.Brains)
+                    {
+                        calcReturn = Calculate(firstEvo, digiComp, calcReturn.Score, calcReturn.CarriedOverStat, calcReturn.CarriedOverCount, myDigimon.Caremistakes);
+                        firstEvo = JsonConvert.DeserializeObject<Digimon>(JsonConvert.SerializeObject(calcReturn.Digimon));
+                    }
+                }
+
+            }
+
+        }
+        possibleEvolutions = new();
+        Console.WriteLine(JsonConvert.SerializeObject(firstEvo));
+    }
+
+    CalculateReturn Calculate(Digimon digi1, Digimon digi2, int score, int carriedOverStat, int carriedOverCount, int carem)
+    {
+        int thisCount = 0;
+        int thisScore = 0;
+        if (digi2.HP > 0)
+        {
+            thisScore += myDigimon.HP / 10;
+            thisCount += 1;
+        }
+
+        if (digi2.MP > 0)
+        {
+            thisScore += myDigimon.MP / 10;
+            thisCount += 1;
+        }
+
+        if (digi2.Offense > 0)
+        {
+            thisScore += myDigimon.Offense;
+            thisCount += 1;
+        }
+
+        if (digi2.Defense > 0)
+        {
+            thisScore += myDigimon.Defense;
+            thisCount += 1;
+        }
+
+        if (digi2.Speed > 0)
+        {
+            thisScore += myDigimon.Speed;
+            thisCount += 1;
+        }
+
+        if (digi2.Brains > 0)
+        {
+            thisScore += myDigimon.Brains;
+            thisCount += 1;
+        }
+        thisScore = (thisScore + carriedOverStat) / (thisCount + carriedOverCount);
+        Console.WriteLine(digi1.Name);
+        Console.WriteLine(digi2.Name);
+        Console.WriteLine(score);
+        Console.WriteLine(thisScore);
+        Console.WriteLine(carriedOverStat);
+        Console.WriteLine(carriedOverCount);
+        if (thisScore > score)
+            return new CalculateReturn() { Digimon = digi2, Score = thisScore, CarriedOverStat = 0, CarriedOverCount = 0 };
+        return new CalculateReturn() { Digimon = digi1, Score = score, CarriedOverStat = thisScore, CarriedOverCount = carriedOverCount + thisCount };
+    }
+}
